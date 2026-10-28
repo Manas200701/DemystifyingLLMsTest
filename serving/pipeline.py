@@ -62,12 +62,14 @@ class ServingPipeline:
                 self.model.eval()
             output = None
             with torch.no_grad():
-                for _ in range(max_new_tokens or self.inference_config.max_new_tokens):
+                for _ in range(self.inference_config.max_new_tokens if max_new_tokens is None else max_new_tokens):
                     output = self.model(input_ids)
                     if isinstance(output, tuple):
                         output = output[0]
                     next_token = output[:, -1, :].argmax(dim=-1, keepdim=True)
                     input_ids = torch.cat((input_ids, next_token), dim=-1)
+                    if next_token.item() in self.inference_config.stop_token_ids:
+                        break
         else:
             output = None
 
@@ -78,4 +80,4 @@ class ServingPipeline:
                 return self.tokenizer.decode(out_tokens[len(tokens):])
             return self.tokenizer.decode(tokens)
 
-        return f"{text} [processed]"
+        raise RuntimeError("No callable model is available for inference")

@@ -102,6 +102,11 @@ class InferenceEngine:
         if not tokens:
             raise ValueError("prompt_tokens must contain at least one token")
 
+        use_cache = self.inference_config.use_kv_cache and hasattr(self.model, "config")
+        from inference.generation.kv_cache import KVCache
+        cache = KVCache(getattr(self.model.config, "n_layers", 12)) if use_cache else None
+        cache_initialized = False
+
         # Autoregressive generation loop
         with torch.no_grad():
             for _ in range(max_tokens):
@@ -109,7 +114,12 @@ class InferenceEngine:
 
                 if self.model is None or not callable(self.model):
                     raise RuntimeError("No callable model is available for inference")
-                logits = self.model(input_tensor)
+                if cache is not None:
+                    model_input = input_tensor if not cache_initialized else input_tensor[:, -1:]
+                    logits = self.model(model_input, kv_cache=cache)
+                    cache_initialized = True
+                else:
+                    logits = self.model(input_tensor)
                 if isinstance(logits, tuple):
                     logits = logits[0]
                 next_token_logits = logits[:, -1, :]
@@ -166,5 +176,5 @@ class InferenceEngine:
             except Exception:
                 pass
 
-        # Fallback decode: append dummy synthesized continuation
+        # Character fallback is only meaningful for codepoint-based token IDs.
         return "".join(chr(token) for token in output_ids[len(prompt_ids):] if 0 <= token <= 0x10FFFF)

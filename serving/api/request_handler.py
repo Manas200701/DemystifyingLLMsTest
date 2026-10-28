@@ -52,7 +52,7 @@ class RequestHandler:
             generated_text = raw_gen
             generated_tokens = prompt_tokens
         else:
-            generated_tokens = prompt_tokens + [prompt_tokens[-1] + 1 if prompt_tokens else 42]
+            raise RuntimeError("No inference engine is available")
 
         if generated_text is not None:
             response_text = generated_text

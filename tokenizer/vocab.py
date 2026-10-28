@@ -19,6 +19,7 @@ class Vocabulary:
         self.add_token(PAD_TOKEN, 0)
         self.add_token(UNK_TOKEN, 1)
         self.add_token(BOS_TOKEN, 50256)
+        self._token_to_id[EOS_TOKEN] = self.eos_token_id
 
         if vocab_dict is not None:
             for token, idx in vocab_dict.items():
@@ -43,12 +44,12 @@ class Vocabulary:
     def token_to_id(self, token: str) -> int:
         if token in self._token_to_id:
             return self._token_to_id[token]
-        return self.add_token(token)
+        return self.unk_token_id
 
-    def id_to_token(self, idx: int) -> str:
+    def id_to_token(self, idx: int) -> Optional[str]:
         if idx in self._id_to_token:
             return self._id_to_token[idx]
-        return UNK_TOKEN
+        return None
 
     def __len__(self) -> int:
         return len(self._token_to_id)
