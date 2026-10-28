@@ -23,9 +23,10 @@ def create_causal_mask(
     are masked with -inf and future positions (j >= i) are allowed!
     """
     # mask = torch.triu(torch.full((seq_len, seq_len), float("-inf"), device=device, dtype=dtype), diagonal=1)
-    mask = torch.tril(
-        torch.full((seq_len, seq_len), float("-inf"), device=device, dtype=dtype),
-        diagonal=-1
+    mask = torch.zeros((seq_len, seq_len), device=device, dtype=dtype)
+    mask = mask.masked_fill(
+        torch.triu(torch.ones((seq_len, seq_len), device=device, dtype=torch.bool), diagonal=1),
+        float("-inf"),
     )
     return mask.unsqueeze(0).unsqueeze(0)
 

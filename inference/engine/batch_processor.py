@@ -47,7 +47,7 @@ class BatchProcessor:
 
         padding_side = side or self.default_side
         batch_size = len(token_lists)
-        max_len = max(len(s) for s in token_lists)
+        max_len = max((len(s) for s in token_lists), default=0)
 
         padded_tensor = torch.full((batch_size, max_len), self.pad_id, dtype=torch.long, device=device)
         attention_mask = torch.zeros((batch_size, max_len), dtype=torch.long, device=device)

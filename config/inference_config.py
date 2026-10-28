@@ -9,7 +9,7 @@ import json
 
 @dataclass
 class InferenceConfig:
-    max_new_tokens: int = 0
+    max_new_tokens: int = 20
     use_kv_cache: bool = True
     temperature: float = 0.8
     top_k: int = 50
@@ -32,6 +32,8 @@ class InferenceConfig:
             raise ValueError(f"top_k must be non-negative, got {self.top_k}")
         if self.repetition_penalty <= 0.0:
             raise ValueError(f"repetition_penalty must be positive, got {self.repetition_penalty}")
+        if self.beam_width < 1:
+            raise ValueError(f"beam_width must be positive, got {self.beam_width}")
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert configuration to dictionary."""
@@ -41,7 +43,9 @@ class InferenceConfig:
     def from_dict(cls, data: Dict[str, Any]) -> "InferenceConfig":
         """Load configuration from dictionary."""
         valid_keys = {k: v for k, v in data.items() if k in cls.__dataclass_fields__}
-        return cls(**valid_keys)
+        config = cls(**valid_keys)
+        config.validate()
+        return config
 
     def to_json(self, indent: int = 2) -> str:
         """Serialize configuration to JSON string."""
