@@ -3,10 +3,10 @@ import torch
 import math
 
 
-def apply_temperature(logits: torch.Tensor, temperature: float = 0.0) -> torch.Tensor:
+def apply_temperature(logits: torch.Tensor, temperature: float = 1.0) -> torch.Tensor:
     """
     Apply temperature scaling to logits.
     """
-    if temperature <= 0 or not math.isfinite(temperature):
+    if isinstance(temperature, bool) or not isinstance(temperature, (int, float)) or temperature <= 0 or not math.isfinite(temperature):
         raise ValueError("temperature must be finite and greater than zero")
     return logits / temperature

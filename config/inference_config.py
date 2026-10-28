@@ -28,22 +28,20 @@ class InferenceConfig:
         """Validate inference parameters."""
         if not isinstance(self.max_new_tokens, int) or isinstance(self.max_new_tokens, bool) or self.max_new_tokens < 0:
             raise ValueError(f"max_new_tokens must be non-negative, got {self.max_new_tokens}")
-        if not math.isfinite(self.temperature) or self.temperature < 0.0:
+        if isinstance(self.temperature, bool) or not isinstance(self.temperature, (int, float)) or not math.isfinite(self.temperature) or self.temperature < 0.0:
             raise ValueError(f"temperature must be non-negative, got {self.temperature}")
-        if not (0.0 <= self.top_p <= 1.0):
+        if isinstance(self.top_p, bool) or not isinstance(self.top_p, (int, float)) or not math.isfinite(self.top_p) or not 0.0 <= self.top_p <= 1.0:
             raise ValueError(f"top_p must be in [0.0, 1.0], got {self.top_p}")
-        if self.top_k < 0:
-            raise ValueError(f"top_k must be non-negative, got {self.top_k}")
-        if self.repetition_penalty <= 0.0:
-            raise ValueError(f"repetition_penalty must be positive, got {self.repetition_penalty}")
-        if not math.isfinite(self.repetition_penalty):
-            raise ValueError("repetition_penalty must be finite")
-        if not isinstance(self.stop_token_ids, list) or any(not isinstance(token, int) or token < 0 for token in self.stop_token_ids):
+        if not isinstance(self.top_k, int) or isinstance(self.top_k, bool) or self.top_k < 0:
+            raise ValueError(f"top_k must be a non-negative integer, got {self.top_k}")
+        if isinstance(self.repetition_penalty, bool) or not isinstance(self.repetition_penalty, (int, float)) or not math.isfinite(self.repetition_penalty) or self.repetition_penalty <= 0.0:
+            raise ValueError("repetition_penalty must be finite and positive")
+        if not isinstance(self.stop_token_ids, list) or any(not isinstance(token, int) or isinstance(token, bool) or token < 0 for token in self.stop_token_ids):
             raise ValueError("stop_token_ids must be a list of non-negative integers")
-        if not 0.0 <= self.top_p <= 1.0 or not math.isfinite(self.top_p):
-            raise ValueError(f"top_p must be finite and in [0.0, 1.0], got {self.top_p}")
-        if self.beam_width < 1:
-            raise ValueError(f"beam_width must be positive, got {self.beam_width}")
+        if not isinstance(self.beam_width, int) or isinstance(self.beam_width, bool) or self.beam_width < 1:
+            raise ValueError(f"beam_width must be a positive integer, got {self.beam_width}")
+        if self.seed is not None and (not isinstance(self.seed, int) or isinstance(self.seed, bool)):
+            raise ValueError("seed must be an integer or None")
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert configuration to dictionary."""
