@@ -48,7 +48,7 @@ class SinusoidalPositionEmbedding(nn.Module):
         Returns:
             Tensor of shape (1, seq_len, d_model).
         """
-        if offset + seq_len > self.max_seq_len:
+        if offset < 0 or seq_len < 0 or offset + seq_len > self.max_seq_len:
             raise ValueError(
                 f"Requested position index {offset + seq_len} exceeds max_seq_len {self.max_seq_len}"
             )

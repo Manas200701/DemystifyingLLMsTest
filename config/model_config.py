@@ -37,6 +37,12 @@ class ModelConfig:
             raise ValueError("vocab_size, n_layers, and max_seq_len must be positive")
         if self.ffn_multiplier <= 0:
             raise ValueError("ffn_multiplier must be positive")
+        if not 0.0 <= self.dropout < 1.0:
+            raise ValueError("dropout must be in [0.0, 1.0)")
+        if self.layer_norm_eps <= 0 or self.initializer_range <= 0:
+            raise ValueError("layer_norm_eps and initializer_range must be positive")
+        if self.use_rotary and self.d_head % 2:
+            raise ValueError("RoPE requires an even attention head dimension")
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert configuration to a serializable dictionary."""

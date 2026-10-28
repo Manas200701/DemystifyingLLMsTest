@@ -5,6 +5,7 @@ High-level inference engine coordinating model execution, caching, and sampling.
 from typing import Optional, List, Union, Any
 import torch
 import torch.nn as nn
+import inspect
 
 from config.model_config import ModelConfig
 from config.inference_config import InferenceConfig
@@ -29,6 +30,17 @@ class FullTransformerModel(nn.Module):
         if config.tie_weights:
             from model.heads.weight_tying import tie_weights
             tie_weights(self.lm_head, self.embeddings.token_embedding)
+        self.apply(self._initialize_module)
+
+    def _initialize_module(self, module: nn.Module) -> None:
+        std = self.config.initializer_range
+        if isinstance(module, (nn.Linear, nn.Embedding)):
+            nn.init.normal_(module.weight, mean=0.0, std=std)
+            if isinstance(module, nn.Linear) and module.bias is not None:
+                nn.init.zeros_(module.bias)
+        elif isinstance(module, nn.LayerNorm):
+            nn.init.ones_(module.weight)
+            nn.init.zeros_(module.bias)
 
     def forward(self, input_ids: torch.Tensor, **kwargs) -> torch.Tensor:
         kv_cache = kwargs.get("kv_cache")
@@ -75,7 +87,7 @@ class InferenceEngine:
         """
         Internal lifecycle helper to prepare model state before inference execution.
         """
-        if self.model is not None and hasattr(self.model, "train"):
+        if self.model is not None and hasattr(self.model, "eval"):
             self.model.eval()
 
     def generate_tokens(
@@ -102,10 +114,21 @@ class InferenceEngine:
         if not tokens:
             raise ValueError("prompt_tokens must contain at least one token")
 
-        use_cache = self.inference_config.use_kv_cache and hasattr(self.model, "config")
+        forward = getattr(self.model, "forward", None)
+        supports_cache = False
+        if forward is not None:
+            parameters = inspect.signature(forward).parameters.values()
+            supports_cache = any(
+                parameter.name == "kv_cache" or parameter.kind == inspect.Parameter.VAR_KEYWORD
+                for parameter in parameters
+            )
+        use_cache = self.inference_config.use_kv_cache and supports_cache
         from inference.generation.kv_cache import KVCache
-        cache = KVCache(getattr(self.model.config, "n_layers", 12)) if use_cache else None
+        cache = KVCache(getattr(getattr(self.model, "config", None), "n_layers", 12)) if use_cache else None
         cache_initialized = False
+        generator = None
+        if self.inference_config.seed is not None:
+            generator = torch.Generator(device=self.device).manual_seed(self.inference_config.seed)
 
         # Autoregressive generation loop
         with torch.no_grad():
@@ -130,6 +153,7 @@ class InferenceEngine:
                     top_k=sampler_top_k,
                     top_p=sampler_top_p,
                     repetition_penalty=self.inference_config.repetition_penalty,
+                    generator=generator,
                 )
                 next_token = sampler.sample(next_token_logits, generated_tokens=tokens).item()
 

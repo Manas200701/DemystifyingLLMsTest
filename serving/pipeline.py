@@ -46,6 +46,10 @@ class ServingPipeline:
         Returns:
             Decoded completion string.
         """
+        token_limit = self.inference_config.max_new_tokens if max_new_tokens is None else max_new_tokens
+        if not isinstance(token_limit, int) or isinstance(token_limit, bool) or token_limit < 0:
+            raise ValueError("max_new_tokens must be a non-negative integer")
+
         # Step 1: Tokenization
         if self.tokenizer is not None and hasattr(self.tokenizer, "encode"):
             tokens = self.tokenizer.encode(text)
@@ -61,13 +65,25 @@ class ServingPipeline:
             if hasattr(self.model, "eval"):
                 self.model.eval()
             output = None
+            generated = list(tokens)
+            generator = torch.Generator(device=self.device)
+            if self.inference_config.seed is not None:
+                generator.manual_seed(self.inference_config.seed)
             with torch.no_grad():
-                for _ in range(self.inference_config.max_new_tokens if max_new_tokens is None else max_new_tokens):
+                for _ in range(token_limit):
                     output = self.model(input_ids)
                     if isinstance(output, tuple):
                         output = output[0]
-                    next_token = output[:, -1, :].argmax(dim=-1, keepdim=True)
+                    from inference.sampling import Sampler
+                    next_token = Sampler(
+                        temperature=self.inference_config.temperature,
+                        top_k=self.inference_config.top_k,
+                        top_p=self.inference_config.top_p,
+                        repetition_penalty=self.inference_config.repetition_penalty,
+                        generator=generator,
+                    ).sample(output[:, -1, :], generated_tokens=generated).reshape(-1, 1)
                     input_ids = torch.cat((input_ids, next_token), dim=-1)
+                    generated.append(int(next_token.item()))
                     if next_token.item() in self.inference_config.stop_token_ids:
                         break
         else:
@@ -78,6 +94,6 @@ class ServingPipeline:
             if isinstance(output, torch.Tensor):
                 out_tokens = input_ids.squeeze(0).tolist()
                 return self.tokenizer.decode(out_tokens[len(tokens):])
-            return self.tokenizer.decode(tokens)
+            return ""
 
         raise RuntimeError("No callable model is available for inference")

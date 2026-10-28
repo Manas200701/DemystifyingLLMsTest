@@ -1,5 +1,5 @@
 """Vocabulary manager."""
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 from .special_tokens import PAD_TOKEN, UNK_TOKEN, BOS_TOKEN, EOS_TOKEN
 
 
@@ -44,12 +44,12 @@ class Vocabulary:
     def token_to_id(self, token: str) -> int:
         if token in self._token_to_id:
             return self._token_to_id[token]
-        return self.unk_token_id
+        return self.add_token(token)
 
-    def id_to_token(self, idx: int) -> Optional[str]:
+    def id_to_token(self, idx: int) -> str:
         if idx in self._id_to_token:
             return self._id_to_token[idx]
-        return None
+        return UNK_TOKEN
 
     def __len__(self) -> int:
         return len(self._token_to_id)

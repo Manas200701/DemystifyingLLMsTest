@@ -43,13 +43,15 @@ def autoregressive_generate(
         else:
             next_token = torch.argmax(next_token_logits, dim=-1, keepdim=True)
 
-        if next_token.dim() == 1:
+        if next_token.dim() == 0:
+            next_token = next_token.reshape(1, 1)
+        elif next_token.dim() == 1:
             next_token = next_token.unsqueeze(-1)
 
         generated = torch.cat([generated, next_token], dim=-1)
 
         last_ids = next_token.reshape(-1)
-        if stop_criteria.should_stop(generated.size(1), last_ids[0].item() if batch_size == 1 else None):
+        if stop_criteria.should_stop(generated.size(1), last_ids):
             break
 
     return generated

@@ -50,6 +50,7 @@ class EmbeddingLayer(nn.Module):
     ):
         super().__init__()
         cfg = _resolve_config(config)
+        self.use_rotary = bool(getattr(cfg, "use_rotary", False))
 
         self.vocab_size = vocab_size if vocab_size is not None else getattr(cfg, "vocab_size", 50257)
         self.d_model = d_model if d_model is not None else getattr(cfg, "d_model", 768)
@@ -94,8 +95,10 @@ class EmbeddingLayer(nn.Module):
 
         batch_size, seq_len = input_ids.shape
         tok_emb = self.token_embedding(input_ids)
-        pos_emb = self.position_embedding(seq_len=seq_len, offset=offset, device=input_ids.device)
-
-        embeddings = tok_emb + pos_emb.to(dtype=tok_emb.dtype)
+        if self.use_rotary:
+            embeddings = tok_emb
+        else:
+            pos_emb = self.position_embedding(seq_len=seq_len, offset=offset, device=input_ids.device)
+            embeddings = tok_emb + pos_emb.to(dtype=tok_emb.dtype)
 
         return self.dropout(embeddings)
