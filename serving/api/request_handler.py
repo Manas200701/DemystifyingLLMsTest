@@ -102,9 +102,15 @@ class RequestHandler:
             generated_tokens = prompt_tokens[:]
             if self.tokenizer is not None and hasattr(self.tokenizer, "encode"):
                 try:
-                    generated_tokens.extend(self.tokenizer.encode(raw_gen, add_bos=False))
+                    completion_tokens = self.tokenizer.encode(raw_gen, add_bos=False)
                 except TypeError:
-                    generated_tokens.extend(self.tokenizer.encode(raw_gen))
+                    completion_tokens = self.tokenizer.encode(raw_gen)
+                    bos_token_id = getattr(getattr(self.tokenizer, "vocab", None), "bos_token_id", None)
+                    if completion_tokens and completion_tokens[0] == bos_token_id:
+                        completion_tokens = completion_tokens[1:]
+                generated_tokens.extend(completion_tokens)
+            elif isinstance(raw_gen, str):
+                generated_tokens.extend(ord(character) for character in raw_gen)
         else:
             raise RuntimeError("No inference engine is available")
 

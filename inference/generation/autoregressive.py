@@ -1,4 +1,5 @@
 """Module implementation."""
+import inspect
 import torch
 from typing import Optional, List, Callable
 from .kv_cache import KVCache
@@ -20,14 +21,25 @@ def autoregressive_generate(
     """
     if input_ids.dim() != 2 or input_ids.size(0) == 0 or input_ids.size(1) == 0:
         raise ValueError("input_ids must have shape (non-empty batch_size, non-empty sequence_length)")
-    if max_new_tokens < 0:
-        raise ValueError("max_new_tokens must be non-negative")
+    if not isinstance(max_new_tokens, int) or isinstance(max_new_tokens, bool) or max_new_tokens < 0:
+        raise ValueError("max_new_tokens must be a non-negative integer")
     generated = input_ids.clone()
     batch_size = generated.size(0)
     stop_criteria = StopCriteria(max_length=generated.size(1) + max_new_tokens, eos_token_id=eos_token_id)
 
     num_layers = getattr(getattr(model, "config", None), "n_layers", getattr(model, "num_layers", 12))
-    kv_cache = KVCache(num_layers=num_layers) if use_cache else None
+    cache_supported = False
+    if use_cache:
+        forward = getattr(model, "forward", model)
+        try:
+            parameters = inspect.signature(forward).parameters.values()
+            cache_supported = any(
+                parameter.name == "kv_cache" or parameter.kind == inspect.Parameter.VAR_KEYWORD
+                for parameter in parameters
+            )
+        except (TypeError, ValueError):
+            cache_supported = False
+    kv_cache = KVCache(num_layers=num_layers) if use_cache and cache_supported else None
 
     cache_initialized = False
     finished = torch.zeros(batch_size, dtype=torch.bool, device=generated.device)
@@ -35,7 +47,11 @@ def autoregressive_generate(
         if kv_cache is not None:
             model_inputs = generated if not cache_initialized else generated[:, -1:]
             logits = model(model_inputs, kv_cache=kv_cache)
-            cache_initialized = True
+            cache_initialized = kv_cache.get_seq_length() > 0
+            if not cache_initialized:
+                # A generic **kwargs model may accept but ignore kv_cache. Continue
+                # without caching so each call still receives the full prefix.
+                kv_cache = None
         else:
             logits = model(generated)
 

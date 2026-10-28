@@ -15,9 +15,13 @@ class Vocabulary:
         if vocab_dict is not None:
             for token, idx in vocab_dict.items():
                 self.add_token(token, idx)
-            for token in (PAD_TOKEN, UNK_TOKEN, BOS_TOKEN):
+            for token, idx in (
+                (PAD_TOKEN, PAD_TOKEN_ID),
+                (UNK_TOKEN, UNK_TOKEN_ID),
+                (BOS_TOKEN, BOS_TOKEN_ID),
+            ):
                 if token not in self._token_to_id:
-                    self.add_token(token)
+                    self.add_token(token, idx)
         else:
             self.add_token(PAD_TOKEN, PAD_TOKEN_ID)
             self.add_token(UNK_TOKEN, UNK_TOKEN_ID)
@@ -39,6 +43,8 @@ class Vocabulary:
         if idx is None:
             idx = next((candidate for candidate in range(2, 50256) if candidate not in self._id_to_token),
                        max(self._id_to_token, default=-1) + 1)
+        if not isinstance(idx, int) or isinstance(idx, bool):
+            raise ValueError("token id must be an integer")
         if idx < 0:
             raise ValueError("token id must be non-negative")
         if idx in self._id_to_token and self._id_to_token[idx] != token:
