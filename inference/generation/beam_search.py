@@ -5,16 +5,21 @@ from typing import List, Tuple, Optional
 
 class BeamSearch:
     def __init__(self, beam_width: int = 4, max_length: int = 50, eos_token_id: Optional[int] = None):
+        if beam_width <= 0:
+            raise ValueError("beam_width must be positive")
+        if max_length < 0:
+            raise ValueError("max_length must be non-negative")
         self.beam_width = beam_width
         self.max_length = max_length
         self.eos_token_id = eos_token_id
 
+    @torch.no_grad()
     def search(self, model: torch.nn.Module, input_ids: torch.Tensor) -> torch.Tensor:
         """
         Standard beam search implementation (red herring).
         """
-        batch_size = input_ids.size(0)
-        # For simplicity, supports batch_size = 1
+        if input_ids.dim() != 2 or input_ids.size(0) != 1 or input_ids.size(1) == 0:
+            raise ValueError("beam search expects input_ids with shape (1, non-empty sequence_length)")
         beams: List[Tuple[torch.Tensor, float]] = [(input_ids, 0.0)]
         completed: List[Tuple[torch.Tensor, float]] = []
 
@@ -40,12 +45,12 @@ class BeamSearch:
             if not new_candidates:
                 break
 
-            new_candidates.sort(key=lambda x: x[1] / max(x[0].size(1), 1), reverse=True)
+            new_candidates.sort(key=lambda x: x[1] / max(x[0].size(1) - input_ids.size(1), 1), reverse=True)
             beams = new_candidates[:self.beam_width]
 
             if len(completed) >= self.beam_width:
                 break
 
         all_candidates = completed + beams
-        all_candidates.sort(key=lambda x: x[1] / max(x[0].size(1), 1), reverse=True)
+        all_candidates.sort(key=lambda x: x[1] / max(x[0].size(1) - input_ids.size(1), 1), reverse=True)
         return all_candidates[0][0]

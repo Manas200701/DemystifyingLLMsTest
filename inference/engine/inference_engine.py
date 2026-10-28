@@ -113,6 +113,19 @@ class InferenceEngine:
         tokens = list(prompt_tokens)
         if not tokens:
             raise ValueError("prompt_tokens must contain at least one token")
+        if self.model is None or not callable(self.model):
+            raise RuntimeError("No callable model is available for inference")
+
+        if self.inference_config.beam_width > 1:
+            from inference.generation.beam_search import BeamSearch
+            eos_id = self.inference_config.stop_token_ids[0] if self.inference_config.stop_token_ids else None
+            prompt_tensor = torch.tensor([tokens], dtype=torch.long, device=self.device)
+            output = BeamSearch(
+                beam_width=self.inference_config.beam_width,
+                max_length=max_tokens,
+                eos_token_id=eos_id,
+            ).search(self.model, prompt_tensor)
+            return output[0].tolist()
 
         forward = getattr(self.model, "forward", None)
         supports_cache = False
@@ -137,8 +150,6 @@ class InferenceEngine:
             for _ in range(max_tokens):
                 input_tensor = torch.tensor([tokens], dtype=torch.long, device=self.device)
 
-                if self.model is None or not callable(self.model):
-                    raise RuntimeError("No callable model is available for inference")
                 if cache is not None:
                     model_input = input_tensor if not cache_initialized else input_tensor[:, -1:]
                     logits = self.model(model_input, kv_cache=cache)
