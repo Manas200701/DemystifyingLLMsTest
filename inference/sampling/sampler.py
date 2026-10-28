@@ -23,13 +23,13 @@ class Sampler:
         self.top_p = top_p
         self.repetition_penalty = repetition_penalty
         self.generator = generator
-        if isinstance(temperature, bool) or not isinstance(temperature, (int, float)) or temperature < 0 or not math.isfinite(temperature):
+        if temperature < 0 or not math.isfinite(temperature):
             raise ValueError("temperature must be finite and non-negative")
-        if not isinstance(top_k, int) or isinstance(top_k, bool) or top_k < 0:
-            raise ValueError("top_k must be a non-negative integer")
-        if isinstance(top_p, bool) or not isinstance(top_p, (int, float)) or not math.isfinite(top_p) or not 0.0 <= top_p <= 1.0:
+        if top_k < 0:
+            raise ValueError("top_k must be non-negative")
+        if not math.isfinite(top_p) or not 0.0 <= top_p <= 1.0:
             raise ValueError("top_p must be finite and in [0.0, 1.0]")
-        if isinstance(repetition_penalty, bool) or not isinstance(repetition_penalty, (int, float)) or not math.isfinite(repetition_penalty) or repetition_penalty <= 0:
+        if not math.isfinite(repetition_penalty) or repetition_penalty <= 0:
             raise ValueError("repetition_penalty must be finite and positive")
 
     def sample(
