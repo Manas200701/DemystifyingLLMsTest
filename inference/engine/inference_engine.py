@@ -200,6 +200,11 @@ class InferenceEngine:
                 prompt_ids = [ord(c) for c in prompt]
         else:
             prompt_ids = [ord(c) for c in prompt]
+        from tokenizer.encoding import fit_token_ids_to_vocab
+        model_vocab_size = getattr(
+            getattr(self.model, "config", None), "vocab_size", self.model_config.vocab_size
+        )
+        prompt_ids = fit_token_ids_to_vocab(prompt_ids, model_vocab_size)
 
         # Generate tokens
         output_ids = self.generate_tokens(

@@ -90,6 +90,8 @@ def repetition_rate(token_ids: Sequence[int], n: int = 3) -> float:
     Returns:
         Ratio of duplicate n-grams to total n-grams.
     """
+    if n <= 0:
+        raise ValueError("n must be a positive integer")
     if len(token_ids) < n:
         return 0.0
 

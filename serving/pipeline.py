@@ -55,6 +55,11 @@ class ServingPipeline:
             tokens = self.tokenizer.encode(text)
         else:
             tokens = [ord(c) for c in text]
+        from tokenizer.encoding import fit_token_ids_to_vocab
+        model_vocab_size = getattr(
+            getattr(self.model, "config", None), "vocab_size", self.config.vocab_size
+        )
+        tokens = fit_token_ids_to_vocab(tokens, model_vocab_size)
 
         input_ids = torch.tensor([tokens], dtype=torch.long, device=self.device)
 

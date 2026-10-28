@@ -50,6 +50,7 @@ class Vocabulary:
         return self.add_token(token)
 
     def id_to_token(self, idx: int) -> str:
+        idx = int(idx)
         if idx in self._id_to_token:
             return self._id_to_token[idx]
         return f"<token_{idx}>"

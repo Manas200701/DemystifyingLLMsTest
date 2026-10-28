@@ -5,10 +5,23 @@ HTTP API request parsing, validation, and execution handler.
 import time
 import uuid
 import math
+import inspect
 from typing import Dict, Any, Optional, List
 from utils.logging_utils import get_logger
 
 logger = get_logger("request_handler")
+
+
+def _call_with_supported_kwargs(method: Any, kwargs: Dict[str, Any]) -> Any:
+    """Call an engine method with the options its signature supports."""
+    try:
+        parameters = inspect.signature(method).parameters.values()
+    except (TypeError, ValueError):
+        return method(**kwargs)
+    if any(parameter.kind == inspect.Parameter.VAR_KEYWORD for parameter in parameters):
+        return method(**kwargs)
+    accepted = {parameter.name for parameter in parameters}
+    return method(**{key: value for key, value in kwargs.items() if key in accepted})
 
 
 class RequestHandler:
@@ -56,18 +69,29 @@ class RequestHandler:
             prompt_tokens = self.tokenizer.encode(prompt)
         else:
             prompt_tokens = [ord(c) for c in prompt]
+        model = getattr(self.engine, "model", None)
+        model_config = getattr(model, "config", None) or getattr(self.engine, "model_config", None)
+        if model_config is not None and hasattr(model_config, "vocab_size"):
+            from tokenizer.encoding import fit_token_ids_to_vocab
+            prompt_tokens = fit_token_ids_to_vocab(prompt_tokens, model_config.vocab_size)
 
         # Generate continuation
         generated_text = None
         if self.engine is not None and hasattr(self.engine, "generate_tokens"):
-            generated_tokens = self.engine.generate_tokens(
-                prompt_tokens=prompt_tokens,
-                max_new_tokens=max_tokens,
-                temperature=temperature,
+            generation_args = {
+                "prompt_tokens": prompt_tokens,
+                "max_new_tokens": max_tokens,
+                "temperature": temperature,
                 **sampling_options,
+            }
+            generated_tokens = _call_with_supported_kwargs(
+                self.engine.generate_tokens, generation_args
             )
         elif self.engine is not None and hasattr(self.engine, "generate"):
-            raw_gen = self.engine.generate(prompt, tokenizer=self.tokenizer, max_new_tokens=max_tokens)
+            raw_gen = _call_with_supported_kwargs(
+                self.engine.generate,
+                {"prompt": prompt, "tokenizer": self.tokenizer, "max_new_tokens": max_tokens},
+            )
             generated_text = raw_gen
             generated_tokens = prompt_tokens[:]
             if self.tokenizer is not None and hasattr(self.tokenizer, "encode"):
