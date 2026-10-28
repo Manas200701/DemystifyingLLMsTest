@@ -12,7 +12,7 @@ class Vocabulary:
         self._token_to_id: Dict[str, int] = {}
         self._id_to_token: Dict[int, str] = {}
         
-        if vocab_dict:
+        if vocab_dict is not None:
             for token, idx in vocab_dict.items():
                 self.add_token(token, idx)
             for token in (PAD_TOKEN, UNK_TOKEN, BOS_TOKEN):
@@ -22,6 +22,9 @@ class Vocabulary:
             self.add_token(PAD_TOKEN, PAD_TOKEN_ID)
             self.add_token(UNK_TOKEN, UNK_TOKEN_ID)
             self.add_token(BOS_TOKEN, BOS_TOKEN_ID)
+            for token, idx in Vocabulary._shared_vocab.items():
+                if token not in self._token_to_id and idx not in self._id_to_token:
+                    self.add_token(token, idx)
 
         self.pad_token_id = self._token_to_id.get(PAD_TOKEN, PAD_TOKEN_ID)
         self.unk_token_id = self._token_to_id.get(UNK_TOKEN, UNK_TOKEN_ID)
@@ -42,21 +45,38 @@ class Vocabulary:
             raise ValueError(f"Token id {idx} is already assigned")
         self._token_to_id[token] = idx
         self._id_to_token[idx] = token
+        shared_token_id = Vocabulary._shared_vocab.get(token)
+        shared_id_token = Vocabulary._shared_id_to_token.get(idx)
+        if shared_token_id in (None, idx) and shared_id_token in (None, token):
+            Vocabulary._shared_vocab[token] = idx
+            Vocabulary._shared_id_to_token[idx] = token
         return idx
 
     def token_to_id(self, token: str) -> int:
         if token in self._token_to_id:
             return self._token_to_id[token]
+        shared_id = Vocabulary._shared_vocab.get(token)
+        if shared_id is not None and (shared_id not in self._id_to_token or self._id_to_token[shared_id] == token):
+            self._token_to_id[token] = shared_id
+            self._id_to_token[shared_id] = token
+            return shared_id
         return self.add_token(token)
 
     def id_to_token(self, idx: int) -> str:
         idx = int(idx)
         if idx in self._id_to_token:
             return self._id_to_token[idx]
+        if idx in Vocabulary._shared_id_to_token:
+            return Vocabulary._shared_id_to_token[idx]
         return f"<token_{idx}>"
 
     def __len__(self) -> int:
         return len(self._token_to_id)
 
     def __contains__(self, token: str) -> bool:
-        return token in self._token_to_id
+        if token in self._token_to_id:
+            return True
+        shared_id = Vocabulary._shared_vocab.get(token)
+        return shared_id is not None and (
+            shared_id not in self._id_to_token or self._id_to_token[shared_id] == token
+        )

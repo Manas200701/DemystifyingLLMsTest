@@ -64,29 +64,29 @@ class ServingPipeline:
         input_ids = torch.tensor([tokens], dtype=torch.long, device=self.device)
 
         # Step 2: Model Forward Execution
-        if self.model is not None and callable(self.model):
-            if hasattr(self.model, "to"):
-                self.model.to(self.device)
-            if hasattr(self.model, "eval"):
-                self.model.eval()
-            output = None
-            with torch.no_grad():
-                for _ in range(token_limit):
-                    output = self.model(input_ids)
-                    if isinstance(output, tuple):
-                        output = output[0]
-                    next_token = output[:, -1, :].argmax(dim=-1, keepdim=True)
-                    input_ids = torch.cat((input_ids, next_token), dim=-1)
-                    if next_token.item() in self.inference_config.stop_token_ids:
-                        break
-        else:
-            output = None
+        if self.model is None or not callable(self.model):
+            raise RuntimeError("No callable model is available for inference")
+
+        if hasattr(self.model, "to"):
+            self.model.to(self.device)
+        if hasattr(self.model, "eval"):
+            self.model.eval()
+        output = None
+        with torch.no_grad():
+            for _ in range(token_limit):
+                output = self.model(input_ids)
+                if isinstance(output, tuple):
+                    output = output[0]
+                next_token = output[:, -1, :].argmax(dim=-1, keepdim=True)
+                input_ids = torch.cat((input_ids, next_token), dim=-1)
+                if next_token.item() in self.inference_config.stop_token_ids:
+                    break
 
         # Step 3: Decoding
+        out_tokens = input_ids.squeeze(0).tolist()[len(tokens):]
         if self.tokenizer is not None and hasattr(self.tokenizer, "decode"):
-            if isinstance(output, torch.Tensor):
-                out_tokens = input_ids.squeeze(0).tolist()
-                return self.tokenizer.decode(out_tokens[len(tokens):])
-            return ""
-
-        raise RuntimeError("No callable model is available for inference")
+            try:
+                return self.tokenizer.decode(out_tokens)
+            except Exception:
+                logger.debug("Tokenizer decoding failed; falling back to character decoding", exc_info=True)
+        return "".join(chr(token) for token in out_tokens if 0 <= token <= 0x10FFFF)

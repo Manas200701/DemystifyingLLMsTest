@@ -90,7 +90,13 @@ class RequestHandler:
         elif self.engine is not None and hasattr(self.engine, "generate"):
             raw_gen = _call_with_supported_kwargs(
                 self.engine.generate,
-                {"prompt": prompt, "tokenizer": self.tokenizer, "max_new_tokens": max_tokens},
+                {
+                    "prompt": prompt,
+                    "tokenizer": self.tokenizer,
+                    "max_new_tokens": max_tokens,
+                    "temperature": temperature,
+                    **sampling_options,
+                },
             )
             generated_text = raw_gen
             generated_tokens = prompt_tokens[:]
