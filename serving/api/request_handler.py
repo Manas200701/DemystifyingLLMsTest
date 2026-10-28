@@ -33,6 +33,17 @@ class RequestHandler:
         prompt = request_body.get("prompt", "")
         max_tokens = request_body.get("max_tokens", 16)
         temperature = request_body.get("temperature", 0.8)
+        sampling_options = {}
+        if "top_k" in request_body:
+            top_k = request_body["top_k"]
+            if not isinstance(top_k, int) or isinstance(top_k, bool) or top_k < 0:
+                raise ValueError("top_k must be a non-negative integer")
+            sampling_options["top_k"] = top_k
+        if "top_p" in request_body:
+            top_p = request_body["top_p"]
+            if not isinstance(top_p, (int, float)) or isinstance(top_p, bool) or not math.isfinite(top_p) or not 0.0 <= top_p <= 1.0:
+                raise ValueError("top_p must be in [0.0, 1.0]")
+            sampling_options["top_p"] = top_p
         if not isinstance(prompt, str):
             raise ValueError("prompt must be a string")
         if not isinstance(max_tokens, int) or isinstance(max_tokens, bool) or max_tokens < 0:
@@ -52,7 +63,8 @@ class RequestHandler:
             generated_tokens = self.engine.generate_tokens(
                 prompt_tokens=prompt_tokens,
                 max_new_tokens=max_tokens,
-                temperature=temperature
+                temperature=temperature,
+                **sampling_options,
             )
         elif self.engine is not None and hasattr(self.engine, "generate"):
             raw_gen = self.engine.generate(prompt, tokenizer=self.tokenizer, max_new_tokens=max_tokens)

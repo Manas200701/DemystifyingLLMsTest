@@ -104,7 +104,9 @@ class InferenceEngine:
         self._prepare_model()
 
         max_tokens = max_new_tokens if max_new_tokens is not None else self.inference_config.max_new_tokens
-        if max_tokens <= 0:
+        if not isinstance(max_tokens, int) or isinstance(max_tokens, bool) or max_tokens < 0:
+            raise ValueError("max_new_tokens must be a non-negative integer")
+        if max_tokens == 0:
             return list(prompt_tokens)
 
         temp = temperature if temperature is not None else self.inference_config.temperature

@@ -18,8 +18,8 @@ def autoregressive_generate(
     Generate tokens autoregressively.
     input_ids shape: (batch_size, seq_len)
     """
-    if input_ids.dim() != 2 or input_ids.size(1) == 0:
-        raise ValueError("input_ids must have shape (batch_size, non-empty sequence_length)")
+    if input_ids.dim() != 2 or input_ids.size(0) == 0 or input_ids.size(1) == 0:
+        raise ValueError("input_ids must have shape (non-empty batch_size, non-empty sequence_length)")
     if max_new_tokens < 0:
         raise ValueError("max_new_tokens must be non-negative")
     generated = input_ids.clone()
@@ -30,6 +30,7 @@ def autoregressive_generate(
     kv_cache = KVCache(num_layers=num_layers) if use_cache else None
 
     cache_initialized = False
+    finished = torch.zeros(batch_size, dtype=torch.bool, device=generated.device)
     for _ in range(max_new_tokens):
         if kv_cache is not None:
             model_inputs = generated if not cache_initialized else generated[:, -1:]
@@ -52,6 +53,10 @@ def autoregressive_generate(
             next_token = next_token.reshape(1, 1)
         elif next_token.dim() == 1:
             next_token = next_token.unsqueeze(-1)
+
+        if eos_token_id is not None:
+            next_token[finished] = eos_token_id
+            finished |= next_token.squeeze(-1).eq(eos_token_id)
 
         generated = torch.cat([generated, next_token], dim=-1)
 
