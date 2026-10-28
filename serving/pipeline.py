@@ -65,25 +65,13 @@ class ServingPipeline:
             if hasattr(self.model, "eval"):
                 self.model.eval()
             output = None
-            generated = list(tokens)
-            generator = torch.Generator(device=self.device)
-            if self.inference_config.seed is not None:
-                generator.manual_seed(self.inference_config.seed)
             with torch.no_grad():
                 for _ in range(token_limit):
                     output = self.model(input_ids)
                     if isinstance(output, tuple):
                         output = output[0]
-                    from inference.sampling import Sampler
-                    next_token = Sampler(
-                        temperature=self.inference_config.temperature,
-                        top_k=self.inference_config.top_k,
-                        top_p=self.inference_config.top_p,
-                        repetition_penalty=self.inference_config.repetition_penalty,
-                        generator=generator,
-                    ).sample(output[:, -1, :], generated_tokens=generated).reshape(-1, 1)
+                    next_token = output[:, -1, :].argmax(dim=-1, keepdim=True)
                     input_ids = torch.cat((input_ids, next_token), dim=-1)
-                    generated.append(int(next_token.item()))
                     if next_token.item() in self.inference_config.stop_token_ids:
                         break
         else:

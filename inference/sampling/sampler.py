@@ -48,6 +48,12 @@ class Sampler:
         if self.repetition_penalty != 1.0 and generated_tokens is not None:
             logits = apply_repetition_penalty(logits, generated_tokens, penalty=self.repetition_penalty)
 
+        # Temperature changes the probability mass used by nucleus filtering.
+        if self.temperature <= 0:
+            return torch.argmax(logits, dim=-1)
+        if self.temperature != 1.0:
+            logits = apply_temperature(logits, temperature=self.temperature)
+
         # 2. Top-K
         if self.top_k > 0:
             logits = apply_top_k(logits, k=self.top_k)
@@ -56,14 +62,8 @@ class Sampler:
         if self.top_p < 1.0:
             logits = apply_top_p(logits, p=self.top_p)
 
-        # 4. Temperature
-        if self.temperature <= 0:
-            return torch.argmax(logits, dim=-1)
-        if self.temperature != 1.0:
-            scaled = apply_temperature(logits, temperature=self.temperature)
-            probs = F.softmax(scaled, dim=-1)
-        else:
-            probs = F.softmax(logits, dim=-1)
+        # 4. Normalize the filtered, temperature-scaled logits.
+        probs = F.softmax(logits, dim=-1)
 
         # 5. Multinomial sample
         next_token = torch.multinomial(probs, num_samples=1, generator=self.generator)

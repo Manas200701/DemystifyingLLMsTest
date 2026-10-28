@@ -1,6 +1,7 @@
 """Vocabulary manager."""
 from typing import Dict, Optional
 from .special_tokens import PAD_TOKEN, UNK_TOKEN, BOS_TOKEN, EOS_TOKEN
+from config.constants import PAD_TOKEN_ID, UNK_TOKEN_ID, BOS_TOKEN_ID, EOS_TOKEN_ID
 
 
 class Vocabulary:
@@ -11,19 +12,21 @@ class Vocabulary:
         self._token_to_id: Dict[str, int] = {}
         self._id_to_token: Dict[int, str] = {}
         
-        self.pad_token_id: int = 0
-        self.unk_token_id: int = 1
-        self.bos_token_id: int = 50256
-        self.eos_token_id: int = 50256
-
-        self.add_token(PAD_TOKEN, 0)
-        self.add_token(UNK_TOKEN, 1)
-        self.add_token(BOS_TOKEN, 50256)
-        self._token_to_id[EOS_TOKEN] = self.eos_token_id
-
-        if vocab_dict is not None:
+        if vocab_dict:
             for token, idx in vocab_dict.items():
                 self.add_token(token, idx)
+            for token in (PAD_TOKEN, UNK_TOKEN, BOS_TOKEN):
+                if token not in self._token_to_id:
+                    self.add_token(token)
+        else:
+            self.add_token(PAD_TOKEN, PAD_TOKEN_ID)
+            self.add_token(UNK_TOKEN, UNK_TOKEN_ID)
+            self.add_token(BOS_TOKEN, BOS_TOKEN_ID)
+
+        self.pad_token_id = self._token_to_id.get(PAD_TOKEN, PAD_TOKEN_ID)
+        self.unk_token_id = self._token_to_id.get(UNK_TOKEN, UNK_TOKEN_ID)
+        self.bos_token_id = self._token_to_id.get(BOS_TOKEN, BOS_TOKEN_ID)
+        self.eos_token_id = self._token_to_id.get(EOS_TOKEN, EOS_TOKEN_ID)
 
     def add_token(self, token: str, idx: Optional[int] = None) -> int:
         if token in self._token_to_id:
@@ -49,7 +52,7 @@ class Vocabulary:
     def id_to_token(self, idx: int) -> str:
         if idx in self._id_to_token:
             return self._id_to_token[idx]
-        return UNK_TOKEN
+        return f"<token_{idx}>"
 
     def __len__(self) -> int:
         return len(self._token_to_id)

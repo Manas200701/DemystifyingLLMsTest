@@ -5,6 +5,7 @@ from .kv_cache import KVCache
 from .stop_criteria import StopCriteria
 
 
+@torch.no_grad()
 def autoregressive_generate(
     model: torch.nn.Module,
     input_ids: torch.Tensor,
@@ -17,6 +18,10 @@ def autoregressive_generate(
     Generate tokens autoregressively.
     input_ids shape: (batch_size, seq_len)
     """
+    if input_ids.dim() != 2 or input_ids.size(1) == 0:
+        raise ValueError("input_ids must have shape (batch_size, non-empty sequence_length)")
+    if max_new_tokens < 0:
+        raise ValueError("max_new_tokens must be non-negative")
     generated = input_ids.clone()
     batch_size = generated.size(0)
     stop_criteria = StopCriteria(max_length=generated.size(1) + max_new_tokens, eos_token_id=eos_token_id)

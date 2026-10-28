@@ -6,7 +6,6 @@ from dataclasses import dataclass, field, asdict
 from typing import List, Optional, Dict, Any
 import json
 import math
-from .constants import EOS_TOKEN_ID
 
 
 @dataclass
@@ -17,7 +16,7 @@ class InferenceConfig:
     top_k: int = 50
     top_p: float = 0.9
     repetition_penalty: float = 1.1
-    stop_token_ids: List[int] = field(default_factory=lambda: [EOS_TOKEN_ID])
+    stop_token_ids: List[int] = field(default_factory=list)
     early_stopping: bool = True
     beam_width: int = 1         # 1 indicates greedy / stochastic sampling (non-beam)
     seed: Optional[int] = 42

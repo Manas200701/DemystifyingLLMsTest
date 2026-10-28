@@ -117,12 +117,14 @@ class InferenceEngine:
         forward = getattr(self.model, "forward", None)
         supports_cache = False
         if forward is not None:
-            parameters = inspect.signature(forward).parameters.values()
-            supports_cache = any(
-                parameter.name == "kv_cache" or parameter.kind == inspect.Parameter.VAR_KEYWORD
-                for parameter in parameters
-            )
-        use_cache = self.inference_config.use_kv_cache and supports_cache
+            try:
+                parameters = inspect.signature(forward).parameters.values()
+                supports_cache = any(parameter.name == "kv_cache" for parameter in parameters)
+            except (TypeError, ValueError):
+                supports_cache = isinstance(self.model, FullTransformerModel)
+        use_cache = self.inference_config.use_kv_cache and (
+            isinstance(self.model, FullTransformerModel) or supports_cache
+        )
         from inference.generation.kv_cache import KVCache
         cache = KVCache(getattr(getattr(self.model, "config", None), "n_layers", 12)) if use_cache else None
         cache_initialized = False
